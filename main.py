@@ -24,12 +24,34 @@ def add_task(message):
     bot.reply_to(message, "Write task text", reply_markup=markup)
 
 
+def get_inline_keyboard(user_id):
+    keyboard = telebot.types.InlineKeyboardMarkup()
+    for t_text, t_callback in UserDb.get_all_tasks(tg_id=user_id):
+        callback_button = telebot.types.InlineKeyboardButton(text=t_text, callback_data=t_callback)
+        keyboard.add(callback_button)
+    return keyboard
+
+
 @bot.message_handler(commands=['view'])
 def view_tasks(message):
-    keyboard = telebot.types.InlineKeyboardMarkup()
-    url_button = telebot.types.InlineKeyboardButton(text="Перейти на Яндекс", url="https://ya.ru")
-    tasks = UserDb.get_all_tasks(message.from_user.id)
-    bot.send_message(message.chat.id, tasks)
+    keyboard = get_inline_keyboard(message.from_user.id)
+    bot.send_message(message.chat.id, "Вот ваши задачи", reply_markup=keyboard)
+
+
+# В большинстве случаев целесообразно разбить этот хэндлер на несколько маленьких
+@bot.callback_query_handler(func=lambda call: True)
+def callback_inline(call):
+    # Если сообщение из чата с ботом
+    if call.message:
+        if call.data[0] == "t":
+            UserDb.edit_task(callback_data=call.data)
+            keyboard = get_inline_keyboard(call.from_user.id)
+            bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id,
+                                  text="Вот ваши задачи", reply_markup=keyboard)
+        else:
+            keyboard = get_inline_keyboard(call.from_user.id)
+            bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id,
+                                  text="Вот ваши задачи", reply_markup=keyboard)
 
 
 @bot.message_handler(content_types=['text'])
