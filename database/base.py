@@ -40,8 +40,9 @@ registry = SessionRegistry()
 class Middleware:
     def on_request_start(self, request=''):
         registry.session = Session()
+        # registry.session = current_session()
 
-    def on_request_error(self, error):
+    def on_request_error(self, error=''):
         registry.session.close()
         registry.session = None
 
@@ -50,10 +51,11 @@ class Middleware:
         registry.session.close()
         registry.session = None
 
+
 @contextmanager
 def session_thread(**kwargs):
     """Provide a transactional scope around a series of operations."""
-    mw=Middleware()
+    mw = Middleware()
     try:
         mw.on_request_start()
     except Exception:

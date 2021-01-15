@@ -1,11 +1,9 @@
-import telebot
 from typing import Tuple, Callable, Union
+import telebot
+
 from config import Config
-import database
+from database import User, Task, current_session
 from messages import MESSAGE, Keyboards
-from models import User
-UserDb = database.UserDb
-ListDb = database.ListDb
 
 bot = telebot.TeleBot(Config.bot_api, parse_mode=None)
 
@@ -16,22 +14,22 @@ def send_welcome(message):
     itembtn1 = telebot.types.KeyboardButton('/add')
     itembtn2 = telebot.types.KeyboardButton('/view')
     markup.add(itembtn1, itembtn2)
-    UserDb.get_user(message=message)
+    User.get_user(message=message)
     bot.send_message(message.chat.id, "Здравствуйте. Давайте для начала создадим список!", reply_markup=markup)
     bot.send_message(message.chat.id, "Введите название списка:")
     # print(message)
 
 
 def dec_get_current_user(f) -> Callable:
-    def dec(*params, **kw) -> Tuple[telebot.types.Message, Union[UserDb, User]]:
+    def dec(*params, **kw) -> Tuple[telebot.types.Message, User]:
         message: telebot.types.Message = f(*params, **kw)
         return (message, get_current_user(message))
 
     return dec
 
 
-def get_current_user(message: telebot.types.Message) -> Union[UserDb, User]:
-    return UserDb.get_user(message=message)
+def get_current_user(message: telebot.types.Message) -> User:
+    return User.get_user(message=message)
 
 
 def get_user_step(message: telebot.types.Message) -> int:
@@ -41,9 +39,9 @@ def get_user_step(message: telebot.types.Message) -> int:
 # handle if user step==1
 @dec_get_current_user
 @bot.message_handler(func=lambda m: get_user_step(m) == 1)
-def list_name_handler(message, cur_user: UserDb):
+def list_name_handler(message, cur_user: User):
     list_name = message.text
-    if ListDb.create_list(list_name=list_name, user=cur_user):
+    if User.create_list(list_name=list_name, user=cur_user):
         bot.send_message(message.chat.id, MESSAGE.list_created(list_name), reply_markup=Keyboards.get_list(cur_user))
         cur_user.step = 2
     else:
@@ -58,7 +56,7 @@ def list_name_handler(message, cur_user: UserDb):
 #
 # def get_inline_keyboard(user_id):
 #     keyboard = telebot.types.InlineKeyboardMarkup()
-#     for t_text, t_callback in UserDb.get_all_tasks(tg_id=user_id):
+#     for t_text, t_callback in User.get_all_tasks(tg_id=user_id):
 #         callback_button = telebot.types.InlineKeyboardButton(text=t_text, callback_data=t_callback)
 #         keyboard.add(callback_button)
 #     return keyboard
@@ -76,7 +74,7 @@ def list_name_handler(message, cur_user: UserDb):
 #     # Если сообщение из чата с ботом
 #     if call.message:
 #         if call.data[0] == "t":
-#             UserDb.edit_task(callback_data=call.data)
+#             User.edit_task(callback_data=call.data)
 #             keyboard = get_inline_keyboard(call.from_user.id)
 #             bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id,
 #                                   text="Вот ваши задачи", reply_markup=keyboard)
@@ -89,7 +87,7 @@ def list_name_handler(message, cur_user: UserDb):
 # @bot.message_handler(content_types=['text'])
 # def _add_task(message):
 #     if message.reply_to_message:
-#         UserDb.add_task(text=message.text, tg_id=message.from_user.id)
+#         User.add_task(text=message.text, tg_id=message.from_user.id)
 #     markup = telebot.types.ReplyKeyboardMarkup(row_width=2)
 #     itembtn1 = telebot.types.KeyboardButton('/add')
 #     itembtn2 = telebot.types.KeyboardButton('/view')

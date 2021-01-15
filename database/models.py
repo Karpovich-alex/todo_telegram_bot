@@ -1,10 +1,22 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, func, Boolean
 from sqlalchemy.orm import relationship, backref, session
 
+import json
+
 from database.base import Base
 from database.base import current_session as s
 
 s: session
+
+
+class ParsertoJson:
+    def get_json(self, **kwargs) -> str:
+        # json_data = {'type': 'List', 'id': None}
+        for k in kwargs.keys():
+            if k in self.__dict__ and not kwargs[k]:
+                kwargs[k] = getattr(self, k)
+        output_json = json.dumps(kwargs)
+        return output_json
 
 
 class User(Base):
@@ -55,7 +67,7 @@ class User(Base):
             return cls.create_user(**filter_args)
 
 
-class List(Base):
+class List(Base, ParsertoJson):
     __tablename__ = 'lists'
     id = Column(Integer, primary_key=True)
     name = Column(String(128))
@@ -89,8 +101,11 @@ class List(Base):
         '''
         return bool(s.query(List).filter_by(user_id=user.id, name=name).first())
 
+    def get_json(self, **kwargs) -> str:
+        return super().get_json(type='List', id=None)
 
-class Task(Base):
+
+class Task(Base, ParsertoJson):
     __tablename__ = 'tasks'
     id = Column(Integer, primary_key=True)
     text = Column(String(128))
@@ -102,6 +117,9 @@ class Task(Base):
 
     def __repr__(self):
         return "<Task id: {id} in list id: {user_id}>".format(id=self.id, user_id=self.list_id)
+
+    def get_json(self, **kwargs) -> str:
+        return super(Task, self).get_json(type='Task', id=None, list_id=None)
 
 
 class UserStep(Base):
