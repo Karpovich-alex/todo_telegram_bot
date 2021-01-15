@@ -1,6 +1,8 @@
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from sqlalchemy.orm import session
+
+from tests.TestConfig import TestConfig
 
 
 class SimpleClass:
@@ -9,18 +11,11 @@ class SimpleClass:
             self.__setattr__(k, v)
 
 
-class TestConfig(MagicMock):
-    SQLALCHEMY_DATABASE_URI = 'sqlite://'
-    # :memory:?check_same_thread=False
-    TESTING = True
-
-
 with patch('config.Config', new=TestConfig()) as mock:
     # mock=TestConfig()
     from database import User, List, current_session, Base, engine
-    from database.base import Middleware
-    from messages import Keyboards
-
+    from database.base import Middleware, session_thread
+    # from messages import Keyboards
     mw = Middleware()
 
 
@@ -28,11 +23,11 @@ class KeyboardsCase(unittest.TestCase):
     def setUp(self):
         mw.on_request_start('')
         Base.metadata.create_all(engine)
-        self.s: session = current_session()
+        self.s = current_session()
         self.u1 = User(username='first', tg_id=1111)
         self.list1 = List(name='first list', users=self.u1)
         self.s.add(self.u1)
-        self.s.commit()
+        # self.s.commit()
         self.s.add(self.list1)
         self.s.commit()
 
@@ -40,5 +35,12 @@ class KeyboardsCase(unittest.TestCase):
         mw.on_response('')
         Base.metadata.drop_all(engine)
 
-    def test_get_list(self):
+    def test_get_list_1(self):
         return_value = Keyboards.get_list(self.u1)
+
+    def test_get_list(self):
+        @session_thread()
+        def a():
+            return Keyboards.get_list(self.u1)
+
+        res = a()

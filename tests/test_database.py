@@ -1,19 +1,14 @@
 import unittest
-from unittest.mock import patch, MagicMock
-
+from unittest.mock import patch
 from sqlalchemy.orm import session
+
+from tests.TestConfig import TestConfig
 
 
 class SimpleClass:
     def __init__(self, **kw):
         for k, v in kw.items():
             self.__setattr__(k, v)
-
-
-class TestConfig(MagicMock):
-    SQLALCHEMY_DATABASE_URI = 'sqlite://'
-    # :memory:?check_same_thread=False
-    TESTING = True
 
 
 with patch('config.Config', new=TestConfig()) as mock:
@@ -41,7 +36,7 @@ class UserCase(unittest.TestCase):
         Base.metadata.drop_all(engine)
 
     def test_create_user(self):
-        u = User.create_user(username='user', tg_id=1)
+        # u = User.create_user(username='user', tg_id=1)
         # s=c.session()
         # def find_user(tg_id):
         #     return s.query(UserDb).filter_by(tg_id=tg_id).first

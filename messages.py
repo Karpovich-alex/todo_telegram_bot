@@ -1,4 +1,4 @@
-from database.models import User
+from database import User
 import telebot as t
 
 
@@ -14,6 +14,7 @@ class Keyboards:
     @classmethod
     def get_list(cls, cur_user: User) -> t.types.InlineKeyboardMarkup:
         keyboard = t.types.InlineKeyboardMarkup()
+        a = cur_user.lists
         for l_text, l_callback in cur_user.lists:
             callback_button = t.types.InlineKeyboardButton(text=l_text, callback_data=l_callback)
             keyboard.add(callback_button)
