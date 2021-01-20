@@ -36,17 +36,21 @@ class SessionRegistry(local):
 
 registry = SessionRegistry()
 
-
 class Middleware:
-    def on_request_start(self, request=''):
+
+    @staticmethod
+    def on_request_start(request=''):
         registry.session = Session()
         # registry.session = current_session()
 
-    def on_request_error(self, error=''):
+    @staticmethod
+    def on_request_error( error=''):
+        registry.session.rollback()
         registry.session.close()
         registry.session = None
 
-    def on_response(self, response=''):
+    @staticmethod
+    def on_response(response=''):
         registry.session.commit()
         registry.session.close()
         registry.session = None

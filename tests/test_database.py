@@ -13,20 +13,26 @@ class SimpleClass:
 
 with patch('config.Config', new=TestConfig()) as mock:
     from database import User, List, current_session, Base, engine, Task
+    from database.models import UserStep
     from database.base import Middleware
 
     mw = Middleware()
 
 
 class DBWorker:
-    def setUp(self, *args, **kwargs):
-        mw.on_request_start('')
+    def setUp(self, *args, add_to_session=(), **kwargs):
+        mw.on_request_start()
         Base.metadata.create_all(engine)
         self.s = current_session
         self.u1 = User(username='first', tg_id=1111)
         self.u2 = User(username='second', tg_id=2222)
+
+        # self.s.commit()
+
         self.s.add(self.u1)
         self.s.add(self.u2)
+        if add_to_session:
+            self.s.add_all(add_to_session)
         self.s.commit()
         if self.u1.username != 'first':
             print('ERROR')
@@ -35,8 +41,16 @@ class DBWorker:
         mw.on_response('')
         Base.metadata.drop_all(engine)
 
+    def create_new_session(self):
+        mw.on_response('')
+        mw.on_request_start('')
+        self.s = current_session
+
 
 class UserCase(DBWorker, unittest.TestCase):
+
+    def setUp(self, *args, **kwargs):
+        super(UserCase, self).setUp(add_to_session=(UserStep(step=1), UserStep(step=2)))
 
     def test_create_user(self):
         with self.assertRaises(AttributeError):
@@ -57,11 +71,17 @@ class UserCase(DBWorker, unittest.TestCase):
         self.assertFalse(User.check_user(tg_user=f_user))
         self.assertTrue(User.check_user(db_user=self.u1))
 
+    def test_step_getter(self):
+        self.create_new_session()
+        self.assertEqual(self.u1.step, 1)
+        self.u1.step = 2
+        self.assertEqual(self.u1.step, 2)
+
 
 class ListCase(DBWorker, unittest.TestCase):
 
-    def setUp(self):
-        super(ListCase, self).setUp()
+    def setUp(self, *args, **kwargs):
+        super(ListCase, self).setUp(*args, **kwargs)
         self.list1 = List(name='first list', users=self.u1)
         self.s.add(self.list1)
         self.s.commit()
@@ -77,20 +97,29 @@ class ListCase(DBWorker, unittest.TestCase):
         self.assertIsNotNone(new_list)
 
     def test_get_info_json(self):
+        self.create_new_session()
         self.assertEqual(self.list1.get_json(), '{"type": "List", "id": 1}')
 
 
 class MessageCase(DBWorker, unittest.TestCase):
-    def setUp(self):
-        super(MessageCase, self).setUp()
+    def setUp(self, *args, **kwargs):
+        # super(MessageCase, self).setUp(*args, **kwargs)
+        mw.on_request_start()
+        Base.metadata.create_all(engine)
+        self.s = current_session
+        self.u1 = User(username='first', tg_id=1111)
         self.list1 = List(name='first list', users=self.u1)
-        self.s.add(self.list1)
         self.task1 = Task(text='first task', list=self.list1)
+        self.s.add(self.u1)
+        self.s.add(self.list1)
         self.s.add(self.task1)
         self.s.commit()
+        if self.u1.username != 'first':
+            print('ERROR')
 
-    def test_get_json(self):
-        str_json = '"type": "Task", "id": 1, "list_id": 1'
+    def test_get_task_json(self):
+        str_json = '{"type": "Task", "id": 1, "list_id": 1}'
+        # self.create_new_session()
         self.assertEqual(self.task1.get_json(), str_json)
 
 

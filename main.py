@@ -2,52 +2,98 @@ from typing import Tuple, Callable, Union
 import telebot
 
 from config import Config
-from database import User, Task, current_session
+from database import User, Task, List, current_session, init_db
 from messages import MESSAGE, Keyboards
+from utils import Handler
 
 bot = telebot.TeleBot(Config.bot_api, parse_mode=None)
+init_db()
 
 
 @bot.message_handler(commands=['start'])
+@Handler.request_decorator
 def send_welcome(message):
-    markup = telebot.types.ReplyKeyboardMarkup(row_width=2)
-    itembtn1 = telebot.types.KeyboardButton('/add')
-    itembtn2 = telebot.types.KeyboardButton('/view')
-    markup.add(itembtn1, itembtn2)
+    # markup = telebot.types.ReplyKeyboardMarkup(row_width=2)
+    # itembtn1 = telebot.types.KeyboardButton('/add')
+    # itembtn2 = telebot.types.KeyboardButton('/view')
+    # markup.add(itembtn1, itembtn2)
     User.get_user(message=message)
-    bot.send_message(message.chat.id, "Здравствуйте. Давайте для начала создадим список!", reply_markup=markup)
+    bot.send_message(message.chat.id, "Здравствуйте. Давайте для начала создадим список!")
     bot.send_message(message.chat.id, "Введите название списка:")
     # print(message)
 
+#
+# # handle if user step==1
+# @Handler.get_current_user
+# @bot.message_handler(func=lambda m: Handler.get_user_step(m) == 1)
+# @Handler.request_decorator
+# def list_name_handler(message, cur_user: User):
+#     list_name = message.text
+#     _list = List(name=list_name, users=cur_user)
+#     if cur_user.create_list(_list):
+#         bot.send_message(message.chat.id, MESSAGE.list_created(list_name),
+#                          reply_markup=Keyboards.get_inline_tasks(_list))
+#         cur_user.step = 3
+#         cur_user.step.info = _list.get_json
+#     else:
+#         bot.send_message(message.chat.id, MESSAGE.cant_create_list, reply_markup=Keyboards.get_main_menu())
+#         cur_user.step = 0
+#
+#
+# @Handler.get_current_user
+# @bot.message_handler(func=lambda m: Handler.get_user_step(m) == 3)
+# @Handler.request_decorator
+# def task_name_handler(message, cur_user: User):
+#     task_name = message.text
+#     if cur_user.step.info['type'] != 'List':
+#         raise AttributeError('Last action was not choosing list')
+#     list_id = cur_user.step.info['id']
+#     _list = List.get_list(list_id)
+#     if not _list:
+#         cur_user.step = 3
+#         bot.send_message(message.chat.id, MESSAGE.cant_get_list, reply_markup=Keyboards.get_main_menu())
+#     else:
+#         _list.add_task(Task(text=task_name))
+#         bot.send_message(message.chat.id, MESSAGE.task_added, reply_markup=Keyboards.get_inline_tasks(_list))
+#
+#
+# @bot.callback_query_handler(func=lambda call: call.data['type'] == 'task')
+# @Handler.request_decorator
+# def callback_inline(call):
+#     # Если сообщение из чата с ботом
+#     if call.message:
+#         task = Task.get_task(task_id=call.data['id'])
+#         if not task:
+#             bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id,
+#                                   text=MESSAGE.task_error,
+#                                   reply_markup=Keyboards.get_inline_tasks(List.get_list(list_id=call.data['task_id'])))
+#         else:
+#             task.change_status()
+#             bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id,
+#                                   text=MESSAGE.task_list, reply_markup=Keyboards.get_inline_tasks(
+#                     List.get_list(list_id=call.data['task_id'])))
+#
+#
+# @bot.callback_query_handler(func=lambda call: call.data['type'] == 'list')
+# @Handler.request_decorator
+# def callback_inline(call):
+#     # Если сообщение из чата с ботом
+#     if call.message:
+#         _list = List.get_list(list_id=call.data['id'])
+#         bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id,
+#                               text=MESSAGE.task_error,
+#                               reply_markup=Keyboards.get_inline_tasks(List.get_list(list_id=call.data['id'])))
+#
+#
+# @bot.callback_query_handler(func=lambda call: call.data['action'] == 'edit list')
+# @Handler.request_decorator
+# def callback_inline(call):
+#     if call.message:
+#         bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id,
+#                               text=MESSAGE.task_error,
+#                               reply_markup=Keyboards.get_inline_edit_list(List.get_list(list_id=call.data['list_id'])))
 
-def dec_get_current_user(f) -> Callable:
-    def dec(*params, **kw) -> Tuple[telebot.types.Message, User]:
-        message: telebot.types.Message = f(*params, **kw)
-        return (message, get_current_user(message))
-
-    return dec
-
-
-def get_current_user(message: telebot.types.Message) -> User:
-    return User.get_user(message=message)
-
-
-def get_user_step(message: telebot.types.Message) -> int:
-    return get_current_user(message).step
-
-
-# handle if user step==1
-@dec_get_current_user
-@bot.message_handler(func=lambda m: get_user_step(m) == 1)
-def list_name_handler(message, cur_user: User):
-    list_name = message.text
-    if User.create_list(list_name=list_name, user=cur_user):
-        bot.send_message(message.chat.id, MESSAGE.list_created(list_name), reply_markup=Keyboards.get_list(cur_user))
-        cur_user.step = 2
-    else:
-        bot.send_message(message.chat.id, MESSAGE.cant_create_list, reply_markup=Keyboards.get_main_menu())
-        cur_user.step = 0
-
+print('here')
 # @bot.message_handler(commands=['add'])
 # def add_task(message):
 #     markup = telebot.types.ForceReply(selective=False)
