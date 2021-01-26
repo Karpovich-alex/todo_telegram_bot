@@ -12,16 +12,17 @@ s: session
 
 class ParsertoJson:
 
-    def get_json(self, **kwargs) -> str:
+    def get_json(self, *args, **kwargs) -> str:
         '''
         Create json str
         :param kwargs: if value == None then update it with value from class, else dont change value.
         :return:
         '''
-        for k in kwargs.keys():
-            if k in self.__dict__ and not kwargs[k]:
-                kwargs[k] = getattr(self, k)
-        output_json = json.dumps(kwargs)
+        sup_dict = kwargs
+        for k in args:
+            if k in self.__dict__ and not kwargs.get(k, False):
+                sup_dict[k] = getattr(self, k)
+        output_json = json.dumps(sup_dict)
         return output_json
 
 
@@ -32,10 +33,10 @@ class User(Base):
     tg_id = Column(Integer, unique=True)
     register_time = Column(DateTime, default=func.now())
 
-    _step_id = Column(Integer, ForeignKey('user_step.id'), default=1)
-    _step = relationship('UserStep', back_populates='user')
+    _step_id = Column(Integer, ForeignKey('user_step.id'))
+    step = relationship('UserStep', back_populates='user', uselist=False)
+    _step_info = {}
 
-    list_id = Column(Integer, ForeignKey('lists.id'))
     lists = relationship('List')
 
     def __repr__(self):
@@ -82,33 +83,45 @@ class User(Base):
         s.add(self)
         s.commit()
 
-    @property
-    def step(self):
-        return self._step.step
-
-    @step.setter
-    def step(self, v):
-        self._step_id = v
-        s.add(self)
+    def set_step(self, step_num: int, step_info: Optional[str] = None):
+        self.step.step = step_num
+        if step_info:
+            self.step.info = step_info
+        s.add(self.step)
         s.commit()
 
-    @step.getter
-    def step(self):
-        return self._step.step
-
     @property
-    def step_info(self):
-        return self._step.info
-
-    @step_info.setter
-    def step_info(self, v):
-        self._step.info = v
-        s.add(self)
-        s.commit()
-
-    @step_info.getter
-    def step_info(self):
-        return self._step.info
+    def step_info(self) -> dict:
+        if not self._step_info:
+            self._step_info = json.loads(self.step.info)
+        return self._step_info
+    # @property
+    # def step(self):
+    #     return self._step.step
+    #
+    # @step.setter
+    # def step(self, v):
+    #     self._step_id = v
+    #     s.add(self)
+    #     s.commit()
+    #
+    # @step.getter
+    # def step(self):
+    #     return self._step.step
+    #
+    # @property
+    # def step_info(self):
+    #     return self._step.info
+    #
+    # @step_info.setter
+    # def step_info(self, v):
+    #     self._step.info = v
+    #     s.add(self)
+    #     s.commit()
+    #
+    # @step_info.getter
+    # def step_info(self):
+    #     return self._step.info
 
 
 class List(Base, ParsertoJson):
@@ -119,7 +132,8 @@ class List(Base, ParsertoJson):
 
     # users = relationship(User, backref=backref('lists'))
     users = relationship(User)
-    task_id = Column(Integer, ForeignKey('tasks.id'))
+    user_id = Column(Integer, ForeignKey('users.id'))
+
     tasks = relationship('Task', backref=backref('list'))
 
     # enable_typechecks=False
@@ -139,15 +153,19 @@ class List(Base, ParsertoJson):
             return False
 
     @classmethod
-    def list_exist(cls, name: str, user) -> bool:
+    def list_exist(cls, name: str, user: User) -> bool:
         '''
         :return: True is list exist
         '''
-        return bool(s.query(List).filter_by(user_id=user.id, name=name).first())
+        r = s.query(List).filter_by(user_id=user.id, name=name).first()
+        if r:
+            return True
+        else:
+            return False
 
     @property
     def get_json(self, **kwargs) -> str:
-        return super().get_json(type='List', id=None)
+        return super().get_json('id', type='list')
 
     def add_task(self, task: 'Task'):
         self.tasks.append(task)
@@ -159,7 +177,7 @@ class List(Base, ParsertoJson):
         if not list_id:
             raise AttributeError('id is required')
         _list = s.query(cls).filter_by(id=list_id).first()
-        if _list:
+        if not _list:
             return None
         else:
             return _list
@@ -169,6 +187,7 @@ class Task(Base, ParsertoJson):
     __tablename__ = 'tasks'
     id = Column(Integer, primary_key=True)
     text = Column(String(128))
+    list_id = Column(Integer, ForeignKey('lists.id'))
     is_completed = Column(Boolean, default=False)
     created_time = Column(DateTime, default=func.now())
 
@@ -177,7 +196,7 @@ class Task(Base, ParsertoJson):
 
     @property
     def get_json(self, **kwargs) -> str:
-        return super(Task, self).get_json(type='Task', id=None, list_id=None, is_completed=None)
+        return super(Task, self).get_json('id', 'list_id', 'is_completed', type='task')
 
     @property
     def inline_text(self):
@@ -203,14 +222,14 @@ class UserStep(Base):
     0-Главное меню
     1-Cоздание списка
     2-Список со списками задач
-    3-Выбран список
+    3-Выбран список info+
     """
     __tablename__ = 'user_step'
     id = Column(Integer, primary_key=True)
     # user_id = Column(Integer, ForeignKey('users.id'))
-    user = relationship("User", back_populates='_step')
+    user = relationship("User", back_populates='step')
     step = Column(Integer)
-    info = Column(JSON)
+    info = Column(JSON, default='{}')
 
     def __repr__(self):
         return f"<Step id: {self.id}"
