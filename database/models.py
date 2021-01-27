@@ -33,7 +33,7 @@ class User(Base):
     tg_id = Column(Integer, unique=True)
     register_time = Column(DateTime, default=func.now())
 
-    _step_id = Column(Integer, ForeignKey('user_step.id'))
+    # _step_id = Column(Integer, ForeignKey('user_step.id'))
     step = relationship('UserStep', back_populates='user', uselist=False)
     _step_info = {}
 
@@ -84,6 +84,8 @@ class User(Base):
         s.commit()
 
     def set_step(self, step_num: int, step_info: Optional[str] = None):
+        if not self.step:
+            self.step = UserStep()
         self.step.step = step_num
         if step_info:
             self.step.info = step_info
@@ -95,33 +97,6 @@ class User(Base):
         if not self._step_info:
             self._step_info = json.loads(self.step.info)
         return self._step_info
-    # @property
-    # def step(self):
-    #     return self._step.step
-    #
-    # @step.setter
-    # def step(self, v):
-    #     self._step_id = v
-    #     s.add(self)
-    #     s.commit()
-    #
-    # @step.getter
-    # def step(self):
-    #     return self._step.step
-    #
-    # @property
-    # def step_info(self):
-    #     return self._step.info
-    #
-    # @step_info.setter
-    # def step_info(self, v):
-    #     self._step.info = v
-    #     s.add(self)
-    #     s.commit()
-    #
-    # @step_info.getter
-    # def step_info(self):
-    #     return self._step.info
 
 
 class List(Base, ParsertoJson):
@@ -164,8 +139,11 @@ class List(Base, ParsertoJson):
             return False
 
     @property
-    def get_json(self, **kwargs) -> str:
+    def get_json(self, ) -> str:
         return super().get_json('id', type='list')
+
+    def get_custom_json(self, *params, **kwargs) -> str:
+        return super().get_json('id', type='list', *params, **kwargs)
 
     def add_task(self, task: 'Task'):
         self.tasks.append(task)
@@ -181,6 +159,13 @@ class List(Base, ParsertoJson):
             return None
         else:
             return _list
+
+    def change_name(self, new_name):
+        if not new_name:
+            return
+        self.name = new_name
+        s.add(self)
+        s.commit()
 
 
 class Task(Base, ParsertoJson):
@@ -223,13 +208,14 @@ class UserStep(Base):
     1-Cоздание списка
     2-Список со списками задач
     3-Выбран список info+
+    4-Изменение названия списка
     """
     __tablename__ = 'user_step'
     id = Column(Integer, primary_key=True)
-    # user_id = Column(Integer, ForeignKey('users.id'))
+    user_id = Column(Integer, ForeignKey('users.id'))
     user = relationship("User", back_populates='step')
     step = Column(Integer)
     info = Column(JSON, default='{}')
 
     def __repr__(self):
-        return f"<Step id: {self.id}"
+        return f"<Step id: {self.id}>"
