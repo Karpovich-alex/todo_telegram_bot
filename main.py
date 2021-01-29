@@ -1,4 +1,3 @@
-from typing import Tuple, Callable, Union
 import telebot
 import json
 
@@ -29,7 +28,7 @@ def list_name_handler(message, cur_user: User):
     list_ = List(name=list_name, users=cur_user)
     cur_user.create_list(list_)
     bot.send_message(message.chat.id, MESSAGE.list_created(list_name),
-                     reply_markup=Keyboards.get_inline_tasks(list_), parse_mode= 'Markdown')
+                     reply_markup=Keyboards.get_inline_tasks(list_), parse_mode='Markdown')
     cur_user.set_step(3, step_info=list_.get_json)
 
 
@@ -80,7 +79,8 @@ def callback_inline(call):
         else:
             task.change_status()
             bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id,
-                                  text=MESSAGE.list_selected(list_.name), reply_markup=Keyboards.get_inline_tasks(list_), parse_mode= 'Markdown')
+                                  text=MESSAGE.list_selected(list_.name),
+                                  reply_markup=Keyboards.get_inline_tasks(list_), parse_mode='Markdown')
 
 
 @Handler.request_decorator
@@ -132,7 +132,8 @@ def callback_inline(call, cur_user: User):
     if call.message:
         list_ = List.get_list(list_id=call.info['id'])
         bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id,
-                              text=MESSAGE.delete_list(list_.name), reply_markup=Keyboards.sure_delete(list_),parse_mode= 'Markdown')
+                              text=MESSAGE.delete_list(list_.name), reply_markup=Keyboards.sure_delete(list_),
+                              parse_mode='Markdown')
 
 
 @Handler.request_decorator
@@ -145,7 +146,8 @@ def callback_inline(call, cur_user: User):
         current_session.delete(list_)
         current_session.commit()
         bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id,
-                              text=MESSAGE.sure_delete_list(name), reply_markup=Keyboards.get_main_menu(),parse_mode= 'Markdown')
+                              text=MESSAGE.sure_delete_list(name), reply_markup=Keyboards.get_main_menu(),
+                              parse_mode='Markdown')
         cur_user.set_step(1)
 
 

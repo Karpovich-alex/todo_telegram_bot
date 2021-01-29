@@ -7,7 +7,7 @@ import json
 from database.base import Base
 from database.base import current_session as s
 
-s: session
+
 
 
 class ParsertoJson:

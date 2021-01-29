@@ -1,6 +1,5 @@
 import unittest
 from unittest.mock import patch
-from sqlalchemy.orm import session
 
 from tests.TestConfig import TestConfig
 
@@ -14,7 +13,8 @@ class SimpleClass:
 with patch('config.Config', new=TestConfig()) as mock:
     from database import User, List, current_session, Base, engine, Task
     from database.models import UserStep
-    from database.base import Middleware
+    from database.base import Middleware, session
+
 
     mw = Middleware()
 
@@ -27,7 +27,6 @@ class DBWorker:
         self.u1 = User(username='first', tg_id=1111)
         self.u2 = User(username='second', tg_id=2222)
 
-        # self.s.commit()
 
         self.s.add(self.u1)
         self.s.add(self.u2)
@@ -82,7 +81,7 @@ class ListCase(DBWorker, unittest.TestCase):
 
     def setUp(self, *args, **kwargs):
         super(ListCase, self).setUp(*args, **kwargs)
-        self.list1 = List(name='first list', users=self.u1)
+        self.list1 = List(name='first list', users=[self.u1])
         self.s.add(self.list1)
         self.s.commit()
 
@@ -98,7 +97,7 @@ class ListCase(DBWorker, unittest.TestCase):
 
     def test_get_info_json(self):
         self.create_new_session()
-        self.assertEqual(self.list1.get_json(), '{"type": "List", "id": 1}')
+        self.assertEqual(self.list1.get_json, '{"type": "List", "id": 1}')
 
 
 class MessageCase(DBWorker, unittest.TestCase):
