@@ -3,25 +3,24 @@ import json
 
 from config import Config
 from database import User, Task, List, current_session, init_db
-from messages import MESSAGE, Keyboards, call_parser
-from utils import Handler
+from messages import MESSAGE, Keyboards
+from utils import Handler, UserSteps, call_parser
 
 bot = telebot.TeleBot(Config.bot_api, parse_mode=None)
 init_db()
 
 
-@Handler.request_decorator
+# @Handler.request_decorator
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     u = User.get_user(message=message)
     bot.send_message(message.chat.id, "Здравствуйте. Давайте для начала создадим список!")
     bot.send_message(message.chat.id, "Введите название списка:")
-    u.set_step(1)
+    u.set_step(UserSteps.main_menu)
 
 
-# handle if user step==1
 @Handler.request_decorator
-@bot.message_handler(func=lambda m: Handler.get_user_step(m) == 1)
+@bot.message_handler(func=lambda m: Handler.get_user_step(m) == UserSteps.main_menu)
 @Handler.get_current_user
 def list_name_handler(message, cur_user: User):
     list_name = message.text
@@ -29,11 +28,11 @@ def list_name_handler(message, cur_user: User):
     cur_user.create_list(list_)
     bot.send_message(message.chat.id, MESSAGE.list_created(list_name),
                      reply_markup=Keyboards.get_inline_tasks(list_), parse_mode='Markdown')
-    cur_user.set_step(3, step_info=list_.get_json)
+    cur_user.set_step(UserSteps.list_selected, step_info=list_.get_json.tostr())
 
 
 @Handler.request_decorator
-@bot.message_handler(func=lambda m: Handler.get_user_step(m) == 3)
+@bot.message_handler(func=lambda m: Handler.get_user_step(m) == UserSteps.list_selected)
 @Handler.get_current_user
 def task_name_handler(message, cur_user: User):
     task_name = message.text
@@ -42,7 +41,7 @@ def task_name_handler(message, cur_user: User):
     list_id = cur_user.step_info['id']
     list_ = List.get_list(list_id)
     if not list_:
-        cur_user.set_step(3, step_info=list_.get_json)
+        cur_user.set_step(UserSteps.list_selected, step_info=list_.get_json)
         bot.send_message(message.chat.id, MESSAGE.cant_get_list, reply_markup=Keyboards.get_main_menu())
     else:
         list_.add_task(Task(text=task_name))
@@ -50,7 +49,7 @@ def task_name_handler(message, cur_user: User):
 
 
 @Handler.request_decorator
-@bot.message_handler(func=lambda m: Handler.get_user_step(m) == 4)
+@bot.message_handler(func=lambda m: Handler.get_user_step(m) == UserSteps.changing_list_name)
 @Handler.get_current_user
 def change_list_name_handler(message, cur_user: User):
     new_list_name = message.text
@@ -59,11 +58,11 @@ def change_list_name_handler(message, cur_user: User):
     list_.change_name(new_list_name)
     bot.send_message(message.chat.id, MESSAGE.list_name_edited(new_list_name),
                      reply_markup=Keyboards.get_inline_tasks(list_), parse_mode='Markdown')
-    cur_user.set_step(3, step_info=list_.get_json)
+    cur_user.set_step(UserSteps.list_selected, step_info=list_.get_json)
 
 
 @Handler.request_decorator
-@bot.callback_query_handler(func=lambda call: call_parser(call, type='task'))
+@bot.callback_query_handler(func=lambda call: call_parser(call, type='task', action='select'))
 def callback_inline(call):
     '''
     Изменяет статус задачи и обновляет inline список задач
@@ -84,49 +83,49 @@ def callback_inline(call):
 
 
 @Handler.request_decorator
-@bot.callback_query_handler(func=lambda call: call_parser(call, action='select list'))
+@bot.callback_query_handler(func=lambda call: call_parser(call, type='list', action='select'))
 @Handler.get_current_user_callback
 def callback_inline(call, cur_user):
     if call.message:
         list_ = List.get_list(list_id=call.info['id'])
-        cur_user.set_step(3, step_info=list_.get_json)
+        cur_user.set_step(UserSteps.list_selected, step_info=list_.get_json)
         bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id,
                               text=MESSAGE.task_list,
                               reply_markup=Keyboards.get_inline_tasks(list_))
 
 
 @Handler.request_decorator
-@bot.callback_query_handler(func=lambda call: call_parser(call, action='main menu'))
+@bot.callback_query_handler(func=lambda call: call_parser(call, action='menu'))
 @Handler.get_current_user_callback
 def callback_inline(call, cur_user):
     if call.message:
         bot.send_message(call.message.chat.id, MESSAGE.main_menu, reply_markup=Keyboards.get_inline_list(cur_user))
-        cur_user.set_step(1)
+        cur_user.set_step(UserSteps.main_menu)
 
 
 @Handler.request_decorator
-@bot.callback_query_handler(func=lambda call: call_parser(call, action='edit list'))
+@bot.callback_query_handler(func=lambda call: call_parser(call, action='edit', type='list'))
 @Handler.get_current_user_callback
 def callback_inline(call, cur_user):
     if call.message:
         bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id,
                               text=MESSAGE.list_menu,
-                              reply_markup=Keyboards.get_inline_edit_list(List.get_list(list_id=call.info['list_id'])))
+                              reply_markup=Keyboards.get_inline_edit_list(List.get_list(list_id=call.info['id'])))
 
 
 @Handler.request_decorator
-@bot.callback_query_handler(func=lambda call: call_parser(call, action='change list name'))
+@bot.callback_query_handler(func=lambda call: call_parser(call, type='list', action='edit'))
 @Handler.get_current_user_callback
 def callback_inline(call, cur_user: User):
-    if call.message:
+    if call.message and call.info()['action']['edit'] == 'name':
         bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id,
                               text=MESSAGE.edit_list_name, reply_markup=Keyboards.back())
         call.info.update({'prev_step': cur_user.step.step})
-        cur_user.set_step(4, step_info=json.dumps(call.info))
+        cur_user.set_step(UserSteps.changing_list_name, step_info=json.dumps(call.info))
 
 
 @Handler.request_decorator
-@bot.callback_query_handler(func=lambda call: call_parser(call, action='delete list'))
+@bot.callback_query_handler(func=lambda call: call_parser(call, action='delete'))
 @Handler.get_current_user_callback
 def callback_inline(call, cur_user: User):
     if call.message:
@@ -137,7 +136,7 @@ def callback_inline(call, cur_user: User):
 
 
 @Handler.request_decorator
-@bot.callback_query_handler(func=lambda call: call_parser(call, action='sure delete list'))
+@bot.callback_query_handler(func=lambda call: call_parser(call, action='delete', type='list'))
 @Handler.get_current_user_callback
 def callback_inline(call, cur_user: User):
     if call.message:
@@ -148,7 +147,7 @@ def callback_inline(call, cur_user: User):
         bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id,
                               text=MESSAGE.sure_delete_list(name), reply_markup=Keyboards.get_main_menu(),
                               parse_mode='Markdown')
-        cur_user.set_step(1)
+        cur_user.set_step(UserSteps.main_menu)
 
 
 bot.polling()

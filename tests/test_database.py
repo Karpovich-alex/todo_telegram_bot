@@ -15,7 +15,6 @@ with patch('config.Config', new=TestConfig()) as mock:
     from database.models import UserStep
     from database.base import Middleware, session
 
-
     mw = Middleware()
 
 
@@ -26,7 +25,6 @@ class DBWorker:
         self.s = current_session
         self.u1 = User(username='first', tg_id=1111)
         self.u2 = User(username='second', tg_id=2222)
-
 
         self.s.add(self.u1)
         self.s.add(self.u2)

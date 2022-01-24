@@ -64,3 +64,16 @@ class Handler:
     @staticmethod
     def get_user_step(message: telebot.types.Message) -> int:
         return Handler._get_current_user(message).step.step
+
+
+def call_parser(call, **kwargs):
+    call_data: dict = json.loads(call.data)
+    for k, v in kwargs.items():
+        if k not in call_data or call_data.get(k) != v:
+            return False
+    return True
+
+class UserSteps:
+    main_menu = 1
+    list_selected = 3
+    changing_list_name = 4

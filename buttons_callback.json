@@ -1,0 +1,18 @@
+{
+  "id": "int if list or task",
+  "type": [
+    "list",
+    "task",
+    "menu"
+  ],
+  "action": {
+    "edit",
+    "select",
+    "delete": [
+      "true/false"
+    ],
+    "menu"
+  },
+  "action info":
+  "is completed": "true/false"
+}

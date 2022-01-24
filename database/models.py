@@ -1,29 +1,38 @@
 from typing import Optional
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, func, Boolean, JSON
-from sqlalchemy.orm import relationship, backref, session
-
 import json
 
-from database.base import Base
-from database.base import current_session as s
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, func, Boolean, JSON
+from sqlalchemy.orm import relationship, backref
+
+from database.base import Base, current_session as s
 
 
+class JsonData:
+
+    def __init__(self, obj_dict: dict):
+        self._obj_dict: dict = obj_dict
+
+    def tostr(self) -> str:
+        return json.dumps(self._obj_dict)
+
+    def addinfo(self, additional_dict) -> 'JsonData':
+        self._obj_dict.update(additional_dict)
+        return self
 
 
 class ParsertoJson:
 
-    def get_json(self, *args, **kwargs) -> str:
+    def get_json(self, *args, **kwargs) -> JsonData:
         '''
         Create json str
-        :param kwargs: if value == None then update it with value from class, else dont change value.
-        :return:
+        :param kwargs: find arg in class attributes and add kwarg to json
+        :return: json string
         '''
         sup_dict = kwargs
         for k in args:
             if k in self.__dict__ and not kwargs.get(k, False):
                 sup_dict[k] = getattr(self, k)
-        output_json = json.dumps(sup_dict)
-        return output_json
+        return JsonData(sup_dict)
 
 
 class User(Base):
@@ -33,7 +42,6 @@ class User(Base):
     tg_id = Column(Integer, unique=True)
     register_time = Column(DateTime, default=func.now())
 
-    # _step_id = Column(Integer, ForeignKey('user_step.id'))
     step = relationship('UserStep', back_populates='user', uselist=False)
     _step_info = {}
 
@@ -105,14 +113,10 @@ class List(Base, ParsertoJson):
     name = Column(String(128))
     created_time = Column(DateTime, default=func.now())
 
-    # users = relationship(User, backref=backref('lists'))
     users = relationship(User)
     user_id = Column(Integer, ForeignKey('users.id'))
 
     tasks = relationship('Task', backref=backref('list'))
-
-    # enable_typechecks=False
-    # __mapper_args__ = {'enable_typechecks':False}
 
     def __repr__(self):
         return f"<List id: {self.id} name: {self.name}>"
@@ -139,10 +143,10 @@ class List(Base, ParsertoJson):
             return False
 
     @property
-    def get_json(self, ) -> str:
+    def get_json(self, ) -> JsonData:
         return super().get_json('id', type='list')
 
-    def get_custom_json(self, *params, **kwargs) -> str:
+    def get_custom_json(self, *params, **kwargs) -> JsonData:
         return super().get_json('id', type='list', *params, **kwargs)
 
     def add_task(self, task: 'Task'):
@@ -180,8 +184,12 @@ class Task(Base, ParsertoJson):
         return "<Task id: {id}>".format(id=self.id)
 
     @property
-    def get_json(self, **kwargs) -> str:
-        return super(Task, self).get_json('id', 'list_id', 'is_completed', type='task')
+    def get_json(self, **kwargs) -> JsonData:
+        return super(Task, self).get_json('id', 'list_id', type='task',
+                                          status={'is completed': self.is_completed})
+
+    def get_custom_json(self, *params, **kwargs) -> JsonData:
+        return super().get_json('id', type='task', *params, **kwargs)
 
     @property
     def inline_text(self):

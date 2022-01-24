@@ -1,5 +1,5 @@
 import json
-from database import User, List
+from database import User, List, Task
 import telebot as t
 
 
@@ -50,13 +50,18 @@ class Keyboards:
         keyboard = t.types.InlineKeyboardMarkup()
         if list_.tasks:
             for task in sorted(list_.tasks, key=lambda t: t.id):
-                callback_button = t.types.InlineKeyboardButton(text=task.inline_text, callback_data=task.get_json)
+                task: Task
+                callback_button = t.types.InlineKeyboardButton(text=task.inline_text,
+                                                               callback_data=task.get_json.addinfo(
+                                                                   {'action': 'selected'}).tostr())
                 keyboard.add(callback_button)
-        callback_button = t.types.InlineKeyboardButton(text='Изменить настройки списка', callback_data=json.dumps(
-            {"action": "edit list", "list_id": list_.id, "type": "action"}))
+        callback_button = t.types.InlineKeyboardButton(text='Изменить настройки списка',
+                                                       callback_data=list_.get_json.addinfo({'action': 'edit'}).tostr())
+        # callback_data=json.dumps(
+        #             {"action": "edit list", "list_id": list_.id, "type": "action"})
         keyboard.add(callback_button)
         callback_button = t.types.InlineKeyboardButton(text='Выйти в главное меню',
-                                                       callback_data=json.dumps({'action': 'main menu'}))
+                                                       callback_data=json.dumps({'action': 'menu'}))
         keyboard.add(callback_button)
         return keyboard
 
@@ -64,9 +69,9 @@ class Keyboards:
     def get_inline_edit_list(cls, list_: List):
         keyboard = t.types.InlineKeyboardMarkup()
         b1 = t.types.InlineKeyboardButton(text="Изменить название",
-                                          callback_data=list_.get_custom_json(action='change list name'))
+                                          callback_data=list_.get_json.addinfo({'action': {'edit': 'name'}}).tostr())
         b2 = t.types.InlineKeyboardButton(text="Удалить список",
-                                          callback_data=list_.get_custom_json(action='delete list'))
+                                          callback_data=list_.get_json.addinfo({'action': 'delete'}).tostr())
         keyboard.add(b1, b2)
         return keyboard
 
@@ -74,7 +79,7 @@ class Keyboards:
     def get_main_menu(cls):
         keyboard = t.types.InlineKeyboardMarkup()
         callback_button = t.types.InlineKeyboardButton(text='Показать все списки',
-                                                       callback_data=json.dumps({'action': 'main menu'}))
+                                                       callback_data=json.dumps({'action': 'menu'}))
         keyboard.add(callback_button)
         return keyboard
 
@@ -82,24 +87,16 @@ class Keyboards:
     def back(cls):
         keyboard = t.types.InlineKeyboardMarkup()
         callback_button = t.types.InlineKeyboardButton(text='Показать все списки',
-                                                       callback_data=json.dumps({'action': 'main menu'}))
+                                                       callback_data=json.dumps({'action': 'menu'}))
         keyboard.add(callback_button)
         return keyboard
 
     @classmethod
-    def sure_delete(cls, list_):
+    def sure_delete(cls, obj):
         keyboard = t.types.InlineKeyboardMarkup()
         b1 = t.types.InlineKeyboardButton(text='Удалить🗑️',
-                                          callback_data=json.dumps({'action': 'sure delete list', 'id': list_.id}))
+                                          callback_data=obj.get_json.addinfo({'action': 'delete'}).tostr())
         b2 = t.types.InlineKeyboardButton(text='Меню',
-                                          callback_data=json.dumps({'action': 'main menu'}))
+                                          callback_data=json.dumps({'action': 'menu'}))
         keyboard.row(b2, b1)
         return keyboard
-
-
-def call_parser(call, **kwargs):
-    call_data: dict = json.loads(call.data)
-    for k, v in kwargs.items():
-        if k not in call_data or call_data.get(k) != v:
-            return False
-    return True
